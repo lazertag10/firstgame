@@ -47,4 +47,17 @@ class InputHandler {
     isDownPressed() {
         return this.isKeyPressed('ArrowDown');
     }
+    
+    // Additional key checks for game controls
+    isPausePressed() {
+        return this.isKeyPressed('p') || this.isKeyPressed('P') || this.isKeyPressed('Escape');
+    }
+    
+    isEnterPressed() {
+        return this.isKeyPressed('Enter');
+    }
+    
+    isRestartPressed() {
+        return this.isKeyPressed('r') || this.isKeyPressed('R');
+    }
 }
