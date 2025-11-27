@@ -6,7 +6,11 @@ is text format that helps in showing cool style text
 * bullets
 
 ## Source control
-    how to back up your code.
-    we will be using github 
+Used to back up your code. we will be using github 
+
+uses: 
+1. takes backup version of code regularly
+2. multiple people can work together.
+
 
 
