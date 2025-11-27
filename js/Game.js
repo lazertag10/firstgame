@@ -11,11 +11,14 @@ class Game {
         // Game objects
         this.hero = null;
         this.level = null;
+        this.enemies = [];
         
         // Game state
         this.isRunning = false;
         this.lastTime = 0;
         this.currentLevelIndex = 0;
+        this.gameState = 'playing'; // 'playing', 'paused', 'gameOver'
+        this.gameOverTimer = 0;
         
         // Initialize the game
         this.init();
@@ -34,6 +37,9 @@ class Game {
             // Create hero at spawn point
             const spawnPoint = this.level.getSpawnPoint();
             this.hero = new Hero(spawnPoint.x, spawnPoint.y, this.assetLoader);
+            
+            // Create enemies for this level
+            this.createEnemies();
             
             // Start the game loop
             this.isRunning = true;
@@ -71,14 +77,51 @@ class Game {
     update(deltaTime) {
         if (!this.hero || !this.level) return;
         
+        // Handle different game states
+        switch (this.gameState) {
+            case 'playing':
+                this.updatePlaying();
+                break;
+            case 'gameOver':
+                this.updateGameOver();
+                break;
+            case 'paused':
+                // Don't update anything when paused
+                break;
+        }
+    }
+    
+    updatePlaying() {
         // Update hero with level collision
         this.hero.update(this.inputHandler, this.level);
+        
+        // Update enemies
+        this.enemies.forEach(enemy => {
+            enemy.update(this.hero, this.level);
+        });
+        
+        // Check hero-enemy collisions
+        this.checkEnemyCollisions();
+        
+        // Check if hero is dead
+        if (this.hero.isDead() && this.gameState === 'playing') {
+            this.gameState = 'gameOver';
+            this.gameOverTimer = 180; // 3 seconds to restart
+            console.log('Game Over!');
+        }
         
         // Update camera to follow hero
         this.level.updateCamera(this.hero, this.canvas.width, this.canvas.height);
         
         // Keep hero within level bounds
         this.constrainHeroToLevelBounds();
+    }
+    
+    updateGameOver() {
+        this.gameOverTimer--;
+        if (this.gameOverTimer <= 0) {
+            this.restart();
+        }
     }
     
     constrainHeroToLevelBounds() {
@@ -121,8 +164,18 @@ class Game {
             this.hero.render(this.ctx, this.level.camera);
         }
         
+        // Draw enemies
+        this.enemies.forEach(enemy => {
+            enemy.render(this.ctx, this.level.camera);
+        });
+        
         // Draw UI
         this.drawUI();
+        
+        // Draw game over screen if needed
+        if (this.gameState === 'gameOver') {
+            this.drawGameOverScreen();
+        }
     }
     
     drawBackground() {
@@ -144,11 +197,14 @@ class Game {
         // Game title
         this.ctx.fillStyle = '#2c3e50';
         this.ctx.font = 'bold 24px Arial';
-        this.ctx.fillText('2D Platformer - Phase 2', 20, 40);
+        this.ctx.fillText('2D Platformer - Phase 3', 20, 40);
+        
+        // Draw health hearts in top right
+        this.drawHealthBar();
         
         // Instructions
         this.ctx.font = '16px Arial';
-        this.ctx.fillText('Arrow Keys: Move and Jump | Down+Jump: Drop through platforms', 20, this.canvas.height - 40);
+        this.ctx.fillText('Arrow Keys: Move and Jump | Avoid Enemies!', 20, this.canvas.height - 40);
         
         // Level info
         this.ctx.font = '14px Arial';
@@ -156,7 +212,10 @@ class Game {
         if (this.level && this.level.mapData) {
             this.ctx.fillText(`Level: ${this.level.mapData.name || 'Test Level'}`, this.canvas.width - 200, 25);
         }
-        this.ctx.fillText('Phase 2: World & Collision', this.canvas.width - 200, 45);
+        this.ctx.fillText('Phase 3: Enemy System', this.canvas.width - 200, 45);
+        
+        // Enemy count
+        this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.canvas.width - 200, 65);
         
         // Camera info (debug)
         if (this.level && this.level.camera) {
@@ -177,14 +236,22 @@ class Game {
     }
     
     restart() {
-        // Reset hero to spawn point
+        // Reset hero to spawn point and full health
         if (this.hero && this.level) {
             const spawnPoint = this.level.getSpawnPoint();
             this.hero.x = spawnPoint.x;
             this.hero.y = spawnPoint.y;
             this.hero.velocityX = 0;
             this.hero.velocityY = 0;
+            this.hero.resetHealth();
         }
+        
+        // Reset game state
+        this.gameState = 'playing';
+        this.gameOverTimer = 0;
+        
+        // Respawn enemies
+        this.createEnemies();
     }
     
     // Switch to next level
@@ -199,6 +266,107 @@ class Game {
         
         // Reset hero to new spawn point
         this.restart();
+        
+        // Create enemies for new level
+        this.createEnemies();
+    }
+    
+    // Create enemies for current level
+    createEnemies() {
+        this.enemies = [];
+        
+        // Level 1: 1 enemy
+        if (this.currentLevelIndex === 0) {
+            this.enemies.push(new Enemy(400, 300, this.assetLoader, 'chicken'));
+        } else {
+            // Level 2: 2 enemies
+            this.enemies.push(new Enemy(300, 400, this.assetLoader, 'chicken'));
+            this.enemies.push(new Enemy(600, 200, this.assetLoader, 'chicken'));
+        }
+        
+        console.log(`Created ${this.enemies.length} enemies for level ${this.currentLevelIndex + 1}`);
+    }
+    
+    // Check collisions between hero and enemies
+    checkEnemyCollisions() {
+        if (!this.hero || this.hero.isDead()) return;
+        
+        this.enemies.forEach(enemy => {
+            if (enemy.isActive && enemy.intersects(this.hero.getBounds())) {
+                // Hero takes damage from enemy
+                const damaged = this.hero.takeDamage(enemy);
+                if (damaged) {
+                    console.log('Hero hit by enemy!');
+                }
+            }
+        });
+    }
+    
+    // Draw health hearts in top right corner
+    drawHealthBar() {
+        if (!this.hero) return;
+        
+        const heartSize = 24;
+        const heartSpacing = 30;
+        const startX = this.canvas.width - (this.hero.maxHealth * heartSpacing) - 20;
+        const startY = 20;
+        
+        for (let i = 0; i < this.hero.maxHealth; i++) {
+            const x = startX + (i * heartSpacing);
+            const y = startY;
+            
+            // Draw heart background
+            this.ctx.fillStyle = '#ecf0f1';
+            this.drawHeart(x, y, heartSize);
+            
+            // Draw filled heart if health remaining
+            if (i < this.hero.health) {
+                this.ctx.fillStyle = '#e74c3c';
+                this.drawHeart(x, y, heartSize);
+            }
+        }
+    }
+    
+    // Draw a heart shape
+    drawHeart(x, y, size) {
+        const centerX = x + size / 2;
+        const centerY = y + size / 2;
+        
+        // Simple heart using text character
+        this.ctx.font = `${size}px Arial`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('\u2665', centerX, centerY);
+        
+        // Reset text alignment
+        this.ctx.textAlign = 'start';
+        this.ctx.textBaseline = 'top';
+    }
+    
+    // Draw game over screen
+    drawGameOverScreen() {
+        // Semi-transparent overlay
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Game over text
+        this.ctx.fillStyle = '#e74c3c';
+        this.ctx.font = 'bold 48px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 50);
+        
+        // Restart countdown
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '24px Arial';
+        const restartTime = Math.ceil(this.gameOverTimer / 60);
+        this.ctx.fillText(`Restarting in ${restartTime}...`, this.canvas.width / 2, this.canvas.height / 2 + 20);
+        
+        // Press R to restart immediately
+        this.ctx.font = '18px Arial';
+        this.ctx.fillText('Press R to restart immediately', this.canvas.width / 2, this.canvas.height / 2 + 60);
+        
+        // Reset text alignment
+        this.ctx.textAlign = 'start';
     }
 }
 
@@ -215,11 +383,14 @@ window.addEventListener('load', () => {
             game.switchLevel(0);
         } else if (e.key === '2') {
             game.switchLevel(1);
+        } else if (e.key === 'r' || e.key === 'R') {
+            game.restart();
         }
     });
     
-    console.log('2D Platformer Game - Phase 2 Loaded!');
+    console.log('2D Platformer Game - Phase 3 Loaded!');
     console.log('Use arrow keys to move and jump!');
-    console.log('Hold Down + Jump to drop through green platforms!');
+    console.log('Avoid the enemies or they will damage you!');
     console.log('Press 1 or 2 to switch between test levels!');
+    console.log('Press R to restart the game!');
 });

@@ -21,14 +21,41 @@ class Hero {
         this.isOnGround = false;
         this.canJump = true;
         
+        // Health system
+        this.maxHealth = 5;
+        this.health = this.maxHealth;
+        this.isInvincible = false;
+        this.invincibilityDuration = 120; // 2 seconds at 60fps
+        this.invincibilityTimer = 0;
+        
+        // Damage effects
+        this.knockbackForce = 8;
+        this.knockbackDuration = 15;
+        this.knockbackTimer = 0;
+        this.knockbackDirection = 0;
+        
         // Create sprite (using colored rectangle as placeholder)
         const heroImage = assetLoader.createColoredRect('hero', this.width, this.height, '#e74c3c');
         this.sprite = new Sprite(heroImage, this.x, this.y, this.width, this.height);
     }
     
     update(inputHandler, level) {
-        // Handle horizontal movement
-        this.handleHorizontalMovement(inputHandler);
+        // Update invincibility timer
+        if (this.invincibilityTimer > 0) {
+            this.invincibilityTimer--;
+            if (this.invincibilityTimer <= 0) {
+                this.isInvincible = false;
+            }
+        }
+        
+        // Update knockback timer and apply knockback
+        if (this.knockbackTimer > 0) {
+            this.knockbackTimer--;
+            this.velocityX = this.knockbackDirection * this.knockbackForce * (this.knockbackTimer / this.knockbackDuration);
+        } else {
+            // Handle horizontal movement (only if not in knockback)
+            this.handleHorizontalMovement(inputHandler);
+        }
         
         // Handle jumping
         this.handleJumping(inputHandler);
@@ -36,8 +63,10 @@ class Hero {
         // Apply gravity
         this.applyGravity();
         
-        // Apply friction to horizontal movement
-        this.velocityX *= this.friction;
+        // Apply friction to horizontal movement (less friction during knockback)
+        if (this.knockbackTimer <= 0) {
+            this.velocityX *= this.friction;
+        }
         
         // Limit fall speed
         if (this.velocityY > this.maxFallSpeed) {
@@ -177,6 +206,11 @@ class Hero {
         const screenX = this.x - camera.x;
         const screenY = this.y - camera.y;
         
+        // Apply invincibility flashing effect
+        if (this.isInvincible) {
+            ctx.globalAlpha = Math.sin(this.invincibilityTimer * 0.5) * 0.5 + 0.5;
+        }
+        
         // Update sprite position for camera
         this.sprite.setPosition(screenX, screenY);
         this.sprite.render(ctx);
@@ -206,5 +240,51 @@ class Hero {
             width: this.width,
             height: this.height
         };
+    }
+    
+    // Take damage from enemy
+    takeDamage(enemy) {
+        if (this.isInvincible || this.health <= 0) return false;
+        
+        this.health--;
+        this.isInvincible = true;
+        this.invincibilityTimer = this.invincibilityDuration;
+        
+        // Apply knockback
+        this.knockbackDirection = enemy.getCenterX() < this.getCenterX() ? 1 : -1;
+        this.knockbackTimer = this.knockbackDuration;
+        this.velocityY = Math.min(this.velocityY, -5); // Small upward boost
+        
+        console.log(`Hero took damage! Health: ${this.health}`);
+        
+        return true; // Damage was applied
+    }
+    
+    // Check if hero is dead
+    isDead() {
+        return this.health <= 0;
+    }
+    
+    // Heal hero (for power-ups later)
+    heal(amount = 1) {
+        this.health = Math.min(this.health + amount, this.maxHealth);
+        console.log(`Hero healed! Health: ${this.health}`);
+    }
+    
+    // Get center position for calculations
+    getCenterX() {
+        return this.x + this.width / 2;
+    }
+    
+    getCenterY() {
+        return this.y + this.height / 2;
+    }
+    
+    // Reset hero to full health (for level restart)
+    resetHealth() {
+        this.health = this.maxHealth;
+        this.isInvincible = false;
+        this.invincibilityTimer = 0;
+        this.knockbackTimer = 0;
     }
 }

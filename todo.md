@@ -51,20 +51,20 @@ This todo list breaks down the development of a 2D side-scrolling platformer gam
 **Goal**: Add enemy AI and hero-enemy interactions
 
 ### 3.1 Basic Enemy
-- [ ] Create Enemy class (enemy_chicken)
-- [ ] Implement enemy movement (left, right, jump)
-- [ ] Add basic AI for chasing hero when nearby
-- [ ] Make enemy move slower than hero
-- [ ] Add enemy-tile collision detection
+- [x] Create Enemy class (enemy_chicken)
+- [x] Implement enemy movement (left, right, jump)
+- [x] Add basic AI for chasing hero when nearby
+- [x] Make enemy move slower than hero
+- [x] Add enemy-tile collision detection
 
 ### 3.2 Hero-Enemy Interaction
-- [ ] Implement collision detection between hero and enemy
-- [ ] Add heart/life system (5 hearts at start)
-- [ ] Create knockback effect when enemy touches hero
-- [ ] Add invincibility frames to prevent repeated damage
-- [ ] Implement game over when all hearts are lost
+- [x] Implement collision detection between hero and enemy
+- [x] Add heart/life system (5 hearts at start)
+- [x] Create knockback effect when enemy touches hero
+- [x] Add invincibility frames to prevent repeated damage
+- [x] Implement game over when all hearts are lost
 
-**Testing Milestone**: Single enemy chases hero and damages on contact
+**Testing Milestone**: Single enemy chases hero and damages on contact ✅
 
 ---
 
