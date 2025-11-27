@@ -12,6 +12,7 @@ class Game {
         this.hero = null;
         this.level = null;
         this.enemies = [];
+        this.powerUps = [];
         
         // Game state
         this.isRunning = false;
@@ -56,6 +57,9 @@ class Game {
             
             // Create enemies for this level
             this.createEnemies();
+            
+            // Create power-ups for this level
+            this.createPowerUps();
             
             // Start the game loop
             this.isRunning = true;
@@ -198,8 +202,16 @@ class Game {
             enemy.update(this.hero, this.level);
         });
         
+        // Update power-ups
+        this.powerUps.forEach(powerUp => {
+            powerUp.update();
+        });
+        
         // Check hero-enemy collisions
         this.checkEnemyCollisions();
+        
+        // Check hero-power-up collisions
+        this.checkPowerUpCollisions();
         
         // Check if hero is dead
         if (this.hero.isDead() && this.gameState === 'playing') {
@@ -346,6 +358,11 @@ class Game {
         this.enemies.forEach(enemy => {
             enemy.render(this.ctx, this.level.camera);
         });
+        
+        // Draw power-ups
+        this.powerUps.forEach(powerUp => {
+            powerUp.render(this.ctx, this.level.camera);
+        });
     }
     
     drawBackground() {
@@ -414,6 +431,9 @@ class Game {
         
         // Draw health hearts (top right)
         this.drawHealthBar();
+        
+        // Draw power-up status indicators
+        this.drawPowerUpStatus();
         
         // Draw level info and timer
         this.drawLevelInfo();
@@ -519,6 +539,9 @@ class Game {
         // Respawn enemies
         this.createEnemies();
         
+        // Respawn power-ups
+        this.createPowerUps();
+        
         console.log(`Level ${this.currentLevelIndex + 1} restarted!`);
     }
     
@@ -546,6 +569,9 @@ class Game {
         
         // Create enemies for new level
         this.createEnemies();
+        
+        // Create power-ups for new level
+        this.createPowerUps();
     }
     
     // Create enemies for current level
@@ -577,6 +603,44 @@ class Game {
                 }
             }
         });
+    }
+    
+    // Check collisions between hero and power-ups
+    checkPowerUpCollisions() {
+        if (!this.hero || this.hero.isDead()) return;
+        
+        this.powerUps.forEach(powerUp => {
+            if (powerUp.isActive && powerUp.intersects(this.hero.getBounds())) {
+                const effect = powerUp.collect();
+                if (effect) {
+                    this.hero.applyPowerUp(effect);
+                    
+                    // Create collection effect (simple console log for now)
+                    console.log(`Collected power-up: ${effect.description}`);
+                }
+            }
+        });
+        
+        // Remove collected power-ups
+        this.powerUps = this.powerUps.filter(powerUp => powerUp.isActive);
+    }
+    
+    // Create power-ups for current level
+    createPowerUps() {
+        this.powerUps = [];
+        
+        // Level 1: 2 power-ups
+        if (this.currentLevelIndex === 0) {
+            this.powerUps.push(PowerUp.createHeartPowerUp(200, 200, this.assetLoader));
+            this.powerUps.push(PowerUp.createSpeedPowerUp(500, 150, this.assetLoader));
+        } else {
+            // Level 2: 3 power-ups
+            this.powerUps.push(PowerUp.createInvincibilityPowerUp(250, 300, this.assetLoader));
+            this.powerUps.push(PowerUp.createDoubleJumpPowerUp(450, 100, this.assetLoader));
+            this.powerUps.push(PowerUp.createHeartPowerUp(650, 200, this.assetLoader));
+        }
+        
+        console.log(`Created ${this.powerUps.length} power-ups for level ${this.currentLevelIndex + 1}`);
     }
     
     // Draw health hearts in top right corner
@@ -618,6 +682,64 @@ class Game {
         // Reset text alignment
         this.ctx.textAlign = 'start';
         this.ctx.textBaseline = 'top';
+    }
+    
+    // Draw power-up status indicators
+    drawPowerUpStatus() {
+        if (!this.hero) return;
+        
+        const activePowerUps = this.hero.getActivePowerUps();
+        if (activePowerUps.length === 0) return;
+        
+        // Starting position for power-up status (below health hearts)
+        let startX = 20;
+        let startY = 160;
+        
+        activePowerUps.forEach((powerUp, index) => {
+            const x = startX;
+            const y = startY + (index * 35);
+            
+            // Power-up icon background
+            this.ctx.fillStyle = 'rgba(52, 73, 94, 0.8)';
+            this.ctx.fillRect(x, y, 120, 30);
+            
+            // Power-up icon border
+            this.ctx.strokeStyle = '#ecf0f1';
+            this.ctx.lineWidth = 1;
+            this.ctx.strokeRect(x, y, 120, 30);
+            
+            // Power-up type indicator
+            const iconColors = {
+                'invincibility': '#f39c12',
+                'speed': '#3498db',
+                'doubleJump': '#27ae60'
+            };
+            
+            const symbols = {
+                'invincibility': '★',
+                'speed': '⚡',
+                'doubleJump': '↑↑'
+            };
+            
+            this.ctx.fillStyle = iconColors[powerUp.type] || '#95a5a6';
+            this.ctx.font = '16px Arial';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText(symbols[powerUp.type] || '?', x + 5, y + 20);
+            
+            // Timer or status text
+            this.ctx.fillStyle = '#ecf0f1';
+            this.ctx.font = '12px Arial';
+            
+            if (powerUp.permanent) {
+                this.ctx.fillText('∞', x + 100, y + 20);
+            } else if (powerUp.timer) {
+                const seconds = Math.ceil(powerUp.timer / 60);
+                this.ctx.fillText(`${seconds}s`, x + 85, y + 20);
+            }
+        });
+        
+        // Reset text alignment
+        this.ctx.textAlign = 'start';
     }
     
     drawPauseScreen() {

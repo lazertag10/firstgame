@@ -92,19 +92,19 @@ This todo list breaks down the development of a 2D side-scrolling platformer gam
 **Goal**: Add power-ups to enhance gameplay
 
 ### 5.1 Power-up Infrastructure
-- [ ] Create PowerUp base class
-- [ ] Implement power-up spawning system
-- [ ] Add collision detection between hero and power-ups
-- [ ] Create power-up visual effects
+- [x] Create PowerUp base class
+- [x] Implement power-up spawning system
+- [x] Add collision detection between hero and power-ups
+- [x] Create power-up visual effects
 
 ### 5.2 Power-up Types
-- [ ] **Heart Power-up**: Restore one heart
-- [ ] **Invincibility**: 5-second invincibility with visual indicator
-- [ ] **Speed Boost**: 10-second speed increase with timer
-- [ ] **Double Jump**: Enable double jump for rest of level
-- [ ] Add power-up status indicators in UI
+- [x] **Heart Power-up**: Restore one heart
+- [x] **Invincibility**: 5-second invincibility with visual indicator
+- [x] **Speed Boost**: 10-second speed increase with timer
+- [x] **Double Jump**: Enable double jump for rest of level
+- [x] Add power-up status indicators in UI
 
-**Testing Milestone**: All power-ups work correctly with proper timing and effects
+**Testing Milestone**: All power-ups work correctly with proper timing and effects ✅
 
 ---
 

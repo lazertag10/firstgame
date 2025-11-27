@@ -34,17 +34,38 @@ class Hero {
         this.knockbackTimer = 0;
         this.knockbackDirection = 0;
         
+        // Power-up system
+        this.activePowerUps = [];
+        this.baseSpeed = this.speed; // Store original speed
+        this.hasDoubleJump = false;
+        this.jumpCount = 0;
+        this.maxJumps = 1;
+        this.speedMultiplier = 1;
+        this.powerUpInvincibility = false;
+        this.powerUpInvincibilityTimer = 0;
+        
         // Create sprite (using colored rectangle as placeholder)
         const heroImage = assetLoader.createColoredRect('hero', this.width, this.height, '#e74c3c');
         this.sprite = new Sprite(heroImage, this.x, this.y, this.width, this.height);
     }
     
     update(inputHandler, level) {
-        // Update invincibility timer
+        // Update power-ups
+        this.updatePowerUps();
+        
+        // Update invincibility timer (damage-based)
         if (this.invincibilityTimer > 0) {
             this.invincibilityTimer--;
             if (this.invincibilityTimer <= 0) {
                 this.isInvincible = false;
+            }
+        }
+        
+        // Update power-up invincibility timer
+        if (this.powerUpInvincibilityTimer > 0) {
+            this.powerUpInvincibilityTimer--;
+            if (this.powerUpInvincibilityTimer <= 0) {
+                this.powerUpInvincibility = false;
             }
         }
         
@@ -81,18 +102,34 @@ class Hero {
     }
     
     handleHorizontalMovement(inputHandler) {
+        const currentSpeed = this.baseSpeed * this.speedMultiplier;
+        
         if (inputHandler.isLeftPressed()) {
-            this.velocityX = -this.speed;
+            this.velocityX = -currentSpeed;
         } else if (inputHandler.isRightPressed()) {
-            this.velocityX = this.speed;
+            this.velocityX = currentSpeed;
         }
     }
     
     handleJumping(inputHandler) {
-        if (inputHandler.isUpPressed() && this.isOnGround && this.canJump) {
-            this.velocityY = this.jumpPower;
-            this.isOnGround = false;
-            this.canJump = false;
+        // Reset jump count when on ground
+        if (this.isOnGround) {
+            this.jumpCount = 0;
+        }
+        
+        // Handle jumping (including double jump)
+        if (inputHandler.isUpPressed() && this.canJump) {
+            const maxJumps = this.hasDoubleJump ? 2 : 1;
+            
+            if (this.jumpCount < maxJumps) {
+                this.velocityY = this.jumpPower;
+                this.jumpCount++;
+                this.canJump = false;
+                
+                if (this.jumpCount > 1) {
+                    console.log('Double jump!');
+                }
+            }
         }
         
         // Reset jump ability when key is released
@@ -207,8 +244,16 @@ class Hero {
         const screenY = this.y - camera.y;
         
         // Apply invincibility flashing effect
-        if (this.isInvincible) {
-            ctx.globalAlpha = Math.sin(this.invincibilityTimer * 0.5) * 0.5 + 0.5;
+        if (this.isInvincible || this.powerUpInvincibility) {
+            ctx.globalAlpha = Math.sin((this.invincibilityTimer + this.powerUpInvincibilityTimer) * 0.5) * 0.5 + 0.5;
+        }
+        
+        // Apply speed boost visual effect
+        if (this.speedMultiplier > 1) {
+            // Add a subtle glow effect for speed boost
+            const glowSize = 4;
+            ctx.shadowColor = '#3498db';
+            ctx.shadowBlur = glowSize;
         }
         
         // Update sprite position for camera
@@ -244,7 +289,7 @@ class Hero {
     
     // Take damage from enemy
     takeDamage(enemy) {
-        if (this.isInvincible || this.health <= 0) return false;
+        if (this.isInvincible || this.powerUpInvincibility || this.health <= 0) return false;
         
         this.health--;
         this.isInvincible = true;
@@ -286,5 +331,119 @@ class Hero {
         this.isInvincible = false;
         this.invincibilityTimer = 0;
         this.knockbackTimer = 0;
+        
+        // Reset power-ups (except permanent ones like double jump in same level)
+        this.clearTemporaryPowerUps();
+    }
+    
+    // Power-up system methods
+    updatePowerUps() {
+        // Update active power-up timers
+        this.activePowerUps = this.activePowerUps.filter(powerUp => {
+            if (powerUp.permanent) {
+                return true; // Keep permanent power-ups
+            }
+            
+            powerUp.timer--;
+            if (powerUp.timer <= 0) {
+                this.removePowerUpEffect(powerUp);
+                return false; // Remove expired power-up
+            }
+            
+            return true; // Keep active power-up
+        });
+    }
+    
+    applyPowerUp(powerUpEffect) {
+        switch (powerUpEffect.effect) {
+            case 'heal':
+                this.heal(powerUpEffect.value);
+                break;
+                
+            case 'invincibility':
+                this.powerUpInvincibility = true;
+                this.powerUpInvincibilityTimer = powerUpEffect.duration;
+                this.activePowerUps.push({
+                    type: 'invincibility',
+                    timer: powerUpEffect.duration,
+                    permanent: false
+                });
+                console.log(`Invincibility activated for ${Math.ceil(powerUpEffect.duration/60)} seconds!`);
+                break;
+                
+            case 'speed':
+                this.speedMultiplier = powerUpEffect.multiplier;
+                this.activePowerUps.push({
+                    type: 'speed',
+                    timer: powerUpEffect.duration,
+                    permanent: false,
+                    multiplier: powerUpEffect.multiplier
+                });
+                console.log(`Speed boost activated for ${Math.ceil(powerUpEffect.duration/60)} seconds!`);
+                break;
+                
+            case 'doubleJump':
+                this.hasDoubleJump = true;
+                this.maxJumps = 2;
+                this.activePowerUps.push({
+                    type: 'doubleJump',
+                    permanent: true
+                });
+                console.log('Double jump unlocked for this level!');
+                break;
+                
+            default:
+                console.log('Unknown power-up effect:', powerUpEffect.effect);
+                break;
+        }
+    }
+    
+    removePowerUpEffect(powerUp) {
+        switch (powerUp.type) {
+            case 'speed':
+                this.speedMultiplier = 1;
+                console.log('Speed boost ended.');
+                break;
+                
+            case 'invincibility':
+                this.powerUpInvincibility = false;
+                this.powerUpInvincibilityTimer = 0;
+                console.log('Invincibility ended.');
+                break;
+                
+            // Double jump is permanent for the level, so no removal needed
+        }
+    }
+    
+    clearTemporaryPowerUps() {
+        // Remove all temporary power-ups but keep permanent ones like double jump
+        const permanentPowerUps = this.activePowerUps.filter(p => p.permanent);
+        
+        // Remove effects of temporary power-ups
+        this.activePowerUps.forEach(powerUp => {
+            if (!powerUp.permanent) {
+                this.removePowerUpEffect(powerUp);
+            }
+        });
+        
+        this.activePowerUps = permanentPowerUps;
+    }
+    
+    clearAllPowerUps() {
+        // Clear all power-ups including permanent ones (for new levels)
+        this.activePowerUps.forEach(powerUp => {
+            this.removePowerUpEffect(powerUp);
+        });
+        
+        this.activePowerUps = [];
+        this.hasDoubleJump = false;
+        this.maxJumps = 1;
+        this.speedMultiplier = 1;
+        this.powerUpInvincibility = false;
+        this.powerUpInvincibilityTimer = 0;
+    }
+    
+    getActivePowerUps() {
+        return this.activePowerUps;
     }
 }
