@@ -102,9 +102,13 @@ class Tile {
         if (!this.canPassThrough) return false;
         
         // Allow passing through passthrough platforms when:
-        // 1. Hero is moving downward and down arrow is pressed, or
-        // 2. Hero is approaching from below or sides
-        return isDownPressed && heroVelocityY >= 0 || 
-               heroBounds.top > this.y + this.height / 2;
+        // 1. Hero is moving downward and down arrow is pressed
+        // 2. Hero is approaching from below or sides (not landing on top)
+        if (isDownPressed && heroVelocityY >= 0) {
+            return true;
+        }
+        
+        // Allow passing when approaching from below or sides
+        return heroBounds.top > this.y + this.height / 2;
     }
 }

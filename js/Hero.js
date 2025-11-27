@@ -7,11 +7,11 @@ class Hero {
         this.velocityY = 0;
         
         // Physics constants
-        this.speed = 5;
-        this.jumpPower = -15;
-        this.gravity = 0.8;
+        this.speed = 3;
+        this.jumpPower = -13;
+        this.gravity = 0.3;
         this.friction = 0.8;
-        this.maxFallSpeed = 15;
+        this.maxFallSpeed = 10;
         
         // Size
         this.width = 32;
@@ -86,6 +86,33 @@ class Hero {
         
         const isDownPressed = inputHandler.isDownPressed();
         
+        // Special case: Check if standing on passthrough platform and want to drop
+        if (this.isOnGround && isDownPressed) {
+            // Check all tiles the hero is standing on (hero might span multiple tiles)
+            const standingBounds = {
+                left: this.x,
+                right: this.x + this.width,
+                top: this.y + this.height - 2,  // Just below hero's feet
+                bottom: this.y + this.height + 8  // A bit below to catch the platform
+            };
+            
+            const tilesBelow = level.getTilesInArea(standingBounds);
+            const hasPassthroughBelow = tilesBelow.some(tile => {
+                return tile.canPassThrough && 
+                       tile.intersects(standingBounds) &&
+                       // Make sure we're actually standing on top of this tile
+                       this.y + this.height >= tile.y - 5 &&
+                       this.y + this.height <= tile.y + 10;
+            });
+            
+            if (hasPassthroughBelow) {
+                this.isOnGround = false;
+                this.velocityY = 4; // Force downward movement through platform
+                this.y += 2; // Move down slightly to ensure we pass through
+                return; // Skip normal collision this frame
+            }
+        }
+        
         // Handle horizontal movement with collision
         this.x += this.velocityX;
         let horizontalCollision = level.checkCollision(this.getBounds(), this.velocityY, isDownPressed);
@@ -100,46 +127,45 @@ class Hero {
         this.y += this.velocityY;
         let verticalCollision = level.checkCollision(this.getBounds(), this.velocityY, isDownPressed);
         
-        if (verticalCollision.hasCollision) {
-            if (verticalCollision.canLandOnTop && !verticalCollision.shouldPassThrough) {
-                // Landing on top of a tile
+        if (verticalCollision.hasCollision && !verticalCollision.shouldPassThrough) {
+            if (this.velocityY > 0) {
+                // Landing on top of a solid tile
+                // But first check if ALL colliding tiles are passthrough and down is pressed
+                const allTilesPassthrough = verticalCollision.collidingTiles.every(tile => 
+                    tile.canPassThrough || !tile.isSolid
+                );
+                
+                if (allTilesPassthrough && isDownPressed) {
+                    // Allow falling through all passthrough tiles
+                    this.isOnGround = false;
+                    return;
+                }
+                
                 this.y -= this.velocityY;
                 this.velocityY = 0;
                 this.isOnGround = true;
                 
-                // Snap to top of tile
-                const landingTiles = verticalCollision.collidingTiles.filter(tile => 
-                    tile.isLandingOnTop(this.getBounds(), this.velocityY)
+                // Snap to top of highest solid tile
+                const solidTiles = verticalCollision.collidingTiles.filter(tile => 
+                    tile.isSolid && !tile.canPassThrough &&
+                    this.y + this.height > tile.y &&
+                    this.y + this.height < tile.y + tile.height &&
+                    this.x + this.width > tile.x &&
+                    this.x < tile.x + tile.width
                 );
-                if (landingTiles.length > 0) {
-                    const highestTile = landingTiles.reduce((highest, tile) => 
+                if (solidTiles.length > 0) {
+                    const highestTile = solidTiles.reduce((highest, tile) => 
                         tile.y < highest.y ? tile : highest
                     );
                     this.y = highestTile.y - this.height;
                 }
-            } else if (!verticalCollision.shouldPassThrough) {
-                // Hit ceiling or wall
+            } else {
+                // Hit ceiling
                 this.y -= this.velocityY;
                 this.velocityY = 0;
             }
         } else {
             this.isOnGround = false;
-        }
-        
-        // Special case: Check if standing on passthrough platform and want to drop
-        if (this.isOnGround && isDownPressed && inputHandler.isUpPressed()) {
-            const belowBounds = {
-                left: this.x,
-                right: this.x + this.width,
-                top: this.y + this.height,
-                bottom: this.y + this.height + 5
-            };
-            
-            const belowCollision = level.checkCollision(belowBounds, 1, true);
-            if (belowCollision.shouldPassThrough) {
-                this.isOnGround = false;
-                this.velocityY = 2; // Small downward velocity to start falling
-            }
         }
     }
     

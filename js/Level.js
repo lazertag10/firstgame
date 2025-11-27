@@ -182,22 +182,33 @@ class Level {
                 collisionInfo.collidingTiles.push(tile);
                 
                 if (tile.isSolid) {
-                    // Check if entity is landing on top
-                    if (tile.isLandingOnTop(entityBounds, entityVelocityY)) {
-                        collisionInfo.canLandOnTop = true;
-                        
-                        // Check if can pass through (for passthrough tiles)
-                        if (tile.canHeroPassThrough(entityBounds, entityVelocityY, isDownPressed)) {
-                            collisionInfo.shouldPassThrough = true;
-                        }
-                    }
-                    
-                    if (!collisionInfo.shouldPassThrough) {
+                    // Check if can pass through (for passthrough tiles)
+                    if (tile.canHeroPassThrough(entityBounds, entityVelocityY, isDownPressed)) {
+                        collisionInfo.shouldPassThrough = true;
+                    } else {
+                        // Only count as collision if we can't pass through
                         collisionInfo.hasCollision = true;
+                        
+                        // Check if entity is landing on top
+                        if (tile.isLandingOnTop(entityBounds, entityVelocityY)) {
+                            collisionInfo.canLandOnTop = true;
+                        }
                     }
                 }
             }
         });
+        
+        // If all solid tiles can be passed through, don't count as collision
+        if (collisionInfo.shouldPassThrough) {
+            const solidTiles = collisionInfo.collidingTiles.filter(t => t.isSolid);
+            const passthroughTiles = solidTiles.filter(t => 
+                t.canHeroPassThrough(entityBounds, entityVelocityY, isDownPressed)
+            );
+            
+            if (solidTiles.length === passthroughTiles.length) {
+                collisionInfo.hasCollision = false;
+            }
+        }
         
         return collisionInfo;
     }
